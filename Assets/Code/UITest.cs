@@ -13,23 +13,32 @@ public class UITest : MonoBehaviour
     private Button downloadBtn;
     private Button decompressBtn;
 
+    private bool work = false;
+    private float workStartTime = 0;
+
     void Awake()
     {
         slider = this.transform.FindChild("Slider").GetComponent<Slider>();
         txt = this.transform.FindChild("Text").GetComponent<Text>();
 
         compressBtn = this.transform.FindChild("Compress").GetComponent<Button>();
-        compressBtn.onClick.AddListener(Compress);
+        compressBtn.onClick.AddListener(() =>
+        {
+            Compress();
+        });
 
         workBtn = this.transform.FindChild("Work").GetComponent<Button>();
         workBtn.onClick.AddListener(() =>
         {
+            workStartTime = Time.realtimeSinceStartup;
+            work = true;
+            MultiDownload();
         });
 
         downloadBtn = this.transform.FindChild("Download").GetComponent<Button>();
         downloadBtn.onClick.AddListener(() =>
         {
-            this.StartCoroutine(IE_Load());
+            MultiDownload();
         });
 
         decompressBtn = this.transform.FindChild("Decompress").GetComponent<Button>();
@@ -41,38 +50,75 @@ public class UITest : MonoBehaviour
 
     void Start()
     {
+        //TestCompressUtil.OutputFileNames();
     }
 
     private void AfterDecompress()
     {
+        txt.text = (Time.realtimeSinceStartup - workStartTime).ToString("F2");
     }
 
     private void AfterDownload()
     {
+        if (work)
+        {
+            work = false;
+            Decompress();
+        }
     }
 
-    #region Download
+    #region MultiDownload
 
-    private IEnumerator IE_Load()
+    private MultiDownLoad multiDownload = null;
+    private float multiDownloadStartTime = 0;
+
+    private void MultiDownload()
     {
-        int tar = 50;
-        float rate = 0;
-        float stime = Time.realtimeSinceStartup;
-        for (int i = 0; i <= tar; i++)
+        string fromDir = "http://192.168.10.249/assetsbundle/Android/";
+        string toDir = TestCompressUtil.PersistentDataPath + "AndroidZip/";
+        CheckDir(toDir);
+        Debug.LogWarning(toDir);
+
+        multiDownload = new MultiDownLoad();
+        foreach (string file in TestCompressUtil.TestFiles)
         {
-            rate = i * 1.0f / tar;
-            txt.text = string.Format("Downloading {0:G}/{1:G} {2:F2}% {3:F2}", i, tar, rate * 100, Time.realtimeSinceStartup - stime);
-            slider.value = rate;
-            if (i == tar)
+            multiDownload.AddOneConfig(new DownLoadConfig()
             {
+                url = fromDir + CompressUtil.GetCompressFileName(file),
+                savePath = toDir + CompressUtil.GetCompressFileName(file),
+                retryCnt = 0,
+            });
+        }
+
+        multiDownload.SetCallback((status, curSize, totalSize, error) =>
+        {
+            float rate = curSize * 1.0f / totalSize;
+            txt.text = string.Format("Decompressing {0:G}/{1:G} {2:F2}% {3:F2}", curSize, totalSize, rate * 100, Time.realtimeSinceStartup - multiDownloadStartTime);
+            slider.value = rate;
+        });
+        multiDownloadStartTime = Time.realtimeSinceStartup;
+        multiDownload.StartDownLoad();
+        this.StartCoroutine("IE_UpdateMultiDownLoad");
+    }
+
+    private IEnumerator IE_UpdateMultiDownLoad()
+    {
+        while (multiDownload != null)
+        {
+            multiDownload.UpdateCallback();
+            if (multiDownload.Status != HTTPDownLoad.DownLoadStatus.DownLoading)
+            {
+                multiDownload.UpdateCallback();
                 break;
             }
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForEndOfFrame();
+            yield return new WaitForEndOfFrame();
         }
+        txt.text = "Finish " + (Time.realtimeSinceStartup - multiDownloadStartTime).ToString("F2");
         AfterDownload();
     }
 
-    #endregion Download
+    #endregion MultiDownload
 
     #region MultiDecompress
 
@@ -88,12 +134,16 @@ public class UITest : MonoBehaviour
             txt.text = string.Format("Decompressing {0:G}/{1:G} {2:F2}% {3:F2}", finish, total, rate * 100, Time.realtimeSinceStartup - multiDecompressStartTime);
             slider.value = rate;
         });
-        foreach (string file in TestCompressUtil.OriginFileNames)
+        string inDir = TestCompressUtil.PersistentDataPath + "AndroidZip/";
+        string outDir = TestCompressUtil.PersistentDataPath + "Android/";
+        CheckDir(inDir);
+        CheckDir(outDir);
+        foreach (string file in TestCompressUtil.TestFiles)
         {
             multiDecompress.AddCompressConfig(new CompressConfig()
             {
-                inFile = TestCompressUtil.ZipDir + CompressUtil.GetCompressFileName(file),
-                outFile = TestCompressUtil.PersistentDataPath + file,
+                inFile = inDir + CompressUtil.GetCompressFileName(file),
+                outFile = outDir + file,
             });
         }
         multiDecompressStartTime = Time.realtimeSinceStartup;
@@ -138,8 +188,8 @@ public class UITest : MonoBehaviour
         {
             multiCompress.AddCompressConfig(new CompressConfig()
             {
-                inFile = TestCompressUtil.OringinDir + file,
-                outFile = TestCompressUtil.OringinDir + CompressUtil.GetCompressFileName(file),
+                inFile = TestCompressUtil.TestOringinDir + file,
+                outFile = TestCompressUtil.TestOringinDir + CompressUtil.GetCompressFileName(file),
             });
         }
         multiCompressStartTime = Time.realtimeSinceStartup;
@@ -164,4 +214,12 @@ public class UITest : MonoBehaviour
     }
 
     #endregion MultiCompress
+
+    private void CheckDir(string dir)
+    {
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+    }
 }

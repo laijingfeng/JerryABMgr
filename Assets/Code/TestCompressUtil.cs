@@ -10,12 +10,20 @@ public class TestCompressUtil
         {
             return new List<string>()
             {
-                "general_assets_bundle",
-                "pet005_bundle",
-                "ui_bundle",
-                "pet002_bundle",
+                "Android",
             };
         }
+    }
+
+    public static void OutputFileNames()
+    {
+        List<string> files = TestCompressUtil.OriginFileNames;
+        string ret = "";
+        foreach (string file in files)
+        {
+            ret += string.Format("\"{0}\",\n", file);
+        }
+        Debug.LogWarning(ret);
     }
 
     public static List<string> OriginFileNames
@@ -24,7 +32,7 @@ public class TestCompressUtil
         {
             List<string> files = EditorUtil.GetFiles(new List<string>()
             {
-                TestCompressUtil.OringinDir,
+                TestCompressUtil.TestOringinDir,
             });
             List<string> ret = new List<string>();
             foreach (string file in files)
@@ -35,7 +43,7 @@ public class TestCompressUtil
         }
     }
 
-    public static string OringinDir
+    public static string TestOringinDir
     {
         get
         {
@@ -43,11 +51,11 @@ public class TestCompressUtil
         }
     }
 
-    public static string ZipDir
+    public static string PersistentDataPath
     {
         get
         {
-            return Application.dataPath + "/../OriginAssets/Android2/";
+            return Application.persistentDataPath + "/";
         }
     }
 
@@ -56,14 +64,6 @@ public class TestCompressUtil
         get
         {
             return Application.streamingAssetsPath + "/";
-        }
-    }
-
-    public static string PersistentDataPath
-    {
-        get
-        {
-            return Application.dataPath + "/PersistentDataPath/";
         }
     }
 }
